@@ -86,6 +86,7 @@ def main(
     def evaluate(
         instruction,
         input=None,
+        history=[],
         temperature=0.1,
         top_p=0.75,
         top_k=40,
@@ -93,7 +94,13 @@ def main(
         max_new_tokens=128,
         **kwargs,
     ):
-        prompt = prompter.generate_prompt(instruction, input)
+        inst = ''
+        if len(history) > 0:
+            for msg in history[-3:]:
+                inst += 'Question: ' + msg[0] + '\n'
+                inst += 'Answer: ' + msg[1] + '\n'
+        inst += 'Question:' + instruction
+        prompt = prompter.generate_prompt(inst, input)
         inputs = tokenizer(prompt, return_tensors="pt")
         input_ids = inputs["input_ids"].to(device)
         generation_config = GenerationConfig(
@@ -113,42 +120,46 @@ def main(
             )
         s = generation_output.sequences[0]
         output = tokenizer.decode(s)
-        return prompter.get_response(output)
+        history += [[instruction, prompter.get_response(output)]]
+        return "", history
 
-    gr.Interface(
-        fn=evaluate,
-        inputs=[
-            gr.components.Textbox(
-                lines=2,
-                label="Instruction",
-                placeholder="Tell me about alpacas.",
-            ),
-            gr.components.Textbox(lines=2, label="Input", placeholder="none"),
-            gr.components.Slider(
-                minimum=0, maximum=1, value=0.1, label="Temperature"
-            ),
-            gr.components.Slider(
-                minimum=0, maximum=1, value=0.75, label="Top p"
-            ),
-            gr.components.Slider(
-                minimum=0, maximum=100, step=1, value=40, label="Top k"
-            ),
-            gr.components.Slider(
-                minimum=1, maximum=4, step=1, value=4, label="Beams"
-            ),
-            gr.components.Slider(
-                minimum=1, maximum=2000, step=1, value=128, label="Max tokens"
-            ),
-        ],
-        outputs=[
-            gr.inputs.Textbox(
-                lines=5,
-                label="Output",
-            )
-        ],
-        title="🦙🌲 Alpaca-LoRA",
-        description="Alpaca-LoRA is a 7B-parameter LLaMA model finetuned to follow instructions. It is trained on the [Stanford Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset and makes use of the Huggingface LLaMA implementation. For more information, please visit [the project's website](https://github.com/tloen/alpaca-lora).",  # noqa: E501
-    ).launch(server_name="0.0.0.0", share=share_gradio)
+    # Chatbot interface comes from: https://gradio.app/creating-a-chatbot/
+    with gr.Blocks() as demo:
+        gr.Markdown("# 🦙🌲 Alpaca-LoRA")
+        gr.Markdown("Alpaca-LoRA is a 7B-parameter LLaMA model finetuned to follow instructions. It is trained on the [Stanford Alpaca](https://github.com/tatsu-lab/stanford_alpaca) dataset and makes use of the Huggingface LLaMA implementation. For more information, please visit [the project's website](https://github.com/tloen/alpaca-lora).")
+        with gr.Row():
+            with gr.Column():
+                instruction = gr.Textbox(
+                    lines=2,
+                    label="Instruction",
+                    placeholder="Tell me about alpacas.",
+                )
+                input = gr.Textbox(lines=2, label="Input", placeholder="none")
+                temperature = gr.Slider(
+                    minimum=0, maximum=1, value=0.1, label="Temperature"
+                )
+                top_p = gr.Slider(
+                    minimum=0, maximum=1, value=0.75, label="Top p"
+                )
+                top_k = gr.Slider(
+                    minimum=0, maximum=100, step=1, value=40, label="Top k"
+                )
+                beams = gr.Slider(
+                    minimum=1, maximum=4, step=1, value=4, label="Beams"
+                )
+                max_tokens = gr.Slider(
+                    minimum=1, maximum=2000, step=1, value=128, label="Max tokens"
+                )
+                btn = gr.Button("Submit")
+                clear = gr.Button("Clear")
+            with gr.Column():
+                chatbot = gr.Chatbot().style(height=650)
+
+        ins = [instruction, input, chatbot, temperature, top_p, top_k, beams, max_tokens] 
+        btn.click(fn=evaluate, inputs=ins, outputs=[instruction, chatbot])
+        clear.click(fn=lambda: ["", []], inputs=None, outputs=[instruction, chatbot])
+    
+    demo.launch(share=share_gradio, server_name='0.0.0.0')
     # Old testing code follows.
 
     """

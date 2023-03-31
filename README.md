@@ -1,3 +1,17 @@
+# Alpaca-Lora tweaked for chat
+
+A few small tweaks to Alpaca-Lora for better chatting experience.
+
+* Added a simple multi-round chat implementation.
+
+<a href="images/multiround.png"><img src="images/multiround.png" width="450"></a>
+
+* Changed to Gradio blocks-based chatbot interface.
+
+-----
+
+The following is the origin Alpaca-Lora README.
+
 # 🦙🌲🤏 Alpaca-LoRA
 
 - 🤗 **Try the pretrained model out [here](https://huggingface.co/spaces/tloen/alpaca-lora), courtesy of a GPU grant from Huggingface!**
